@@ -1,0 +1,14 @@
+{
+  "name": "accounts-payable-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Accounts Payable Automation System course prototype",
+  "scripts": {
+    "dev": "npm run db:start && concurrently \"npm:dev:server\" \"npm:dev:client\"",
+    "db:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-mongodb.ps1",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install"
+  },
+  "devDependencies": { "concurrently": "^9.0.0" }
+}

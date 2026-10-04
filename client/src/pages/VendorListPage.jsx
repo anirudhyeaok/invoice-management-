@@ -1,0 +1,19 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Plus, Search, Store } from 'lucide-react';
+import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+
+export default function VendorListPage() {
+  const { user } = useAuth();
+  const canManageVendors = ['admin', 'manager'].includes(user?.role);
+  const [search, setSearch] = useState('');
+  const [form, setForm] = useState({ companyName: '', contactName: '', email: '', phone: '' });
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const cache = useQueryClient();
+  const vendorsQuery = useQuery({ queryKey: ['vendors'], queryFn: async () => (await api.get('/vendors')).data.data.vendors });
+  const createVendor = useMutation({ mutationFn: async () => (await api.post('/vendors', form)).data.data.vendor, onSuccess: () => { cache.invalidateQueries({ queryKey: ['vendors'] }); setForm({ companyName: '', contactName: '', email: '', phone: '' }); setShowForm(false); setError(''); }, onError: (err) => setError(err.response?.data?.message || 'Could not add vendor.') });
+  const vendors = (vendorsQuery.data || []).filter((vendor) => `${vendor.companyName} ${vendor.contactName}`.toLowerCase().includes(search.toLowerCase()));
+  return <section className="module-page"><div className="page-heading"><div><span className="welcome-tag">PARTNER DIRECTORY</span><h1>Vendors</h1><p>These are sample vendors for the prototype. {canManageVendors ? 'Add your own vendors here; they will appear in invoice intake.' : 'Ask a manager or admin to add a vendor.'}</p></div>{canManageVendors && <button className="primary-link" onClick={() => setShowForm(!showForm)}><Plus size={16} /> Add vendor</button>}</div>{showForm && canManageVendors && <form className="vendor-form" onSubmit={(e) => { e.preventDefault(); createVendor.mutate(); }}><div className="form-grid"><label className="field-label">Company name<input required value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></label><label className="field-label">Contact name<input required value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} /></label><label className="field-label">Work email<input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label><label className="field-label">Phone<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label></div>{error && <p className="inline-error">{error}</p>}<button className="primary-link" disabled={createVendor.isPending}>{createVendor.isPending ? 'Saving…' : 'Save vendor'}</button></form>}<div className="table-toolbar"><span>{vendors.length} vendors</span><label className="search-box"><Search size={15} /><input placeholder="Search vendors" value={search} onChange={(e) => setSearch(e.target.value)} /></label></div>{vendorsQuery.isLoading ? <div className="table-message">Loading vendors…</div> : vendorsQuery.isError ? <div className="table-message error-text">Vendors could not be loaded.</div> : !vendors.length ? <div className="table-message"><Store size={22} /><b>No vendors yet</b><span>Add a vendor to begin linking invoices to your partners.</span></div> : <div className="vendor-grid">{vendors.map((vendor) => <article className="vendor-card" key={vendor._id}><span className="vendor-mark">{vendor.companyName.slice(0, 1)}</span><div className="vendor-card-main"><b>{vendor.companyName}</b><small>{vendor.contactName}</small><a href={`mailto:${vendor.email}`}>{vendor.email}</a></div><span className={`vendor-status vendor-${vendor.status}`}>{vendor.status}</span><div className="vendor-meta"><span>Payment terms</span><b>Net {vendor.paymentTerms} days</b></div></article>)}</div>}</section>;
+}
