@@ -10,12 +10,14 @@ import ApiError from '../utils/ApiError.js';
 import { sendResponse } from '../utils/ApiResponse.js';
 import { extractInvoiceData } from '../services/ocrService.js';
 import { compareInvoiceToPurchaseOrder } from '../services/matchingService.js';
+import { removeInvoiceFile, saveInvoiceFile, streamStoredInvoiceFile } from '../services/invoiceFileStorage.js';
 
 const validId = (id) => mongoose.Types.ObjectId.isValid(id);
 const uploadDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
 
 export async function createInvoice(req, res, next) {
   let fileSaved = false;
+  let storedFileId;
   try {
     if (!req.file) throw new ApiError(400, 'Choose an invoice file to upload');
     if (!validId(req.body.vendorId)) throw new ApiError(400, 'Choose a valid vendor');
@@ -30,7 +32,7 @@ export async function createInvoice(req, res, next) {
       if (!purchaseOrder.vendor.equals(vendor._id)) throw new ApiError(400, 'Purchase order belongs to a different vendor');
     }
 
-    const { extractedData, rawText, confidenceScore } = await extractInvoiceData(req.file.path, req.file.mimetype);
+    const { extractedData, rawText } = await extractInvoiceData(req.file.path, req.file.mimetype);
     const invoiceNumber = String(req.body.invoiceNumber || extractedData.invoiceNumber || '').trim();
     const amountInput = req.body.totalAmount ?? extractedData.totalAmount;
     const totalAmount = Number(amountInput);
@@ -50,14 +52,15 @@ export async function createInvoice(req, res, next) {
       lineItems: req.body.lineItems ? JSON.parse(req.body.lineItems) : [],
     };
     const match = purchaseOrder ? compareInvoiceToPurchaseOrder(invoiceData, purchaseOrder) : { discrepancies: [], hasDiscrepancies: false };
+    storedFileId = await saveInvoiceFile(req.file.path, req.file.originalname, req.file.mimetype);
+    await fs.unlink(req.file.path).catch(() => {});
     const invoice = await Invoice.create({
       ...invoiceData,
       ...match,
       status: match.hasDiscrepancies ? 'pending_review' : 'pending_approval',
       uploadedBy: req.user._id,
-      originalFileKey: req.file.filename,
+      originalFileKey: storedFileId,
       ocrRawText: rawText,
-      ocrConfidenceScore: confidenceScore,
       ocrExtractedData: extractedData,
     });
     fileSaved = true;
@@ -71,7 +74,8 @@ export async function createInvoice(req, res, next) {
     });
     sendResponse(res, 201, 'Invoice uploaded and extracted', { invoice, extractedData, discrepancies: match.discrepancies });
   } catch (error) {
-    if (!fileSaved && req.file?.path) await fs.unlink(req.file.path).catch(() => {});
+    if (!fileSaved && storedFileId) await removeInvoiceFile(storedFileId);
+    if (req.file?.path) await fs.unlink(req.file.path).catch(() => {});
     next(error);
   }
 }
@@ -257,6 +261,7 @@ export async function streamInvoiceFile(req, res, next) {
     if (!validId(req.params.id)) throw new ApiError(400, 'Invoice ID is invalid');
     const invoice = await Invoice.findById(req.params.id).select('originalFileKey invoiceNumber');
     if (!invoice?.originalFileKey) throw new ApiError(404, 'Invoice file not found');
+    if (mongoose.Types.ObjectId.isValid(invoice.originalFileKey)) return streamStoredInvoiceFile(invoice.originalFileKey, res, next);
     const filePath = path.join(uploadDirectory, path.basename(invoice.originalFileKey));
     res.type(path.extname(invoice.originalFileKey).toLowerCase() === '.pdf' ? 'application/pdf' : path.extname(invoice.originalFileKey).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg');
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(invoice.invoiceNumber)}"`);

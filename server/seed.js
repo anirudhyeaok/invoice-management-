@@ -19,14 +19,26 @@ const vendorNames = [
   'Persistent Systems', 'Zensar Technologies',
 ];
 const statuses = [
-  ...Array(10).fill('paid'), ...Array(8).fill('approved'), ...Array(10).fill('pending_approval'),
-  ...Array(8).fill('pending_review'), ...Array(7).fill('payment_initiated'),
-  ...Array(5).fill('rejected'), ...Array(2).fill('on_hold'),
+  ...Array(25).fill('approved'), ...Array(10).fill('pending_approval'),
+  ...Array(8).fill('pending_review'), ...Array(5).fill('rejected'), ...Array(2).fill('on_hold'),
 ];
 const roundMoney = (value) => Math.round(value * 100) / 100;
 
 try {
   await connectDB();
+  // Convert the old synthetic payment demo rows to approved, unpaid invoices.
+  // Only the identifiable seed records with the old fake provider IDs are touched.
+  const oldPaymentSeeds = await Invoice.find({
+    invoiceNumber: /^INV-2026-/,
+    $or: [
+      { razorpayPaymentId: /^SIMULATED_PAY_SEED_/ },
+      { razorpayOrderId: /^order_demo_/ },
+    ],
+  }).select('_id invoiceNumber');
+  for (const sample of oldPaymentSeeds) {
+    await Invoice.updateOne({ _id: sample._id }, { $set: { status: 'approved', paymentStatus: 'unpaid' }, $unset: { razorpayOrderId: 1, razorpayPaymentId: 1, paymentInitiatedAt: 1, paidAt: 1, paymentAttempts: 1 } });
+    await AuditLog.deleteMany({ entityType: 'Invoice', entityId: sample._id, action: { $in: ['PAYMENT_CONFIRMED', 'PAYMENT_INITIATED'] } });
+  }
   const users = {};
   for (const record of demoUsers) {
     let user = await User.findOne({ email: record.email });
@@ -82,7 +94,7 @@ try {
     const vendor = vendors.find((item) => item._id.equals(purchaseOrder.vendor));
     const invoiceDate = new Date(Date.now() - ((index * 7) % 90) * 86400000);
     const dueDate = new Date(invoiceDate.getTime() + vendor.paymentTerms * 86400000);
-    if (index % 6 === 0 && ['approved', 'payment_initiated'].includes(status)) dueDate.setTime(Date.now() - 5 * 86400000);
+    if (index % 6 === 0 && status === 'approved') dueDate.setTime(Date.now() - 5 * 86400000);
     const isMismatch = status === 'pending_review';
     const poLine = purchaseOrder.lineItems[0];
     const totalAmount = roundMoney(purchaseOrder.totalAmount * (isMismatch ? 1.18 : 1));
@@ -92,25 +104,22 @@ try {
       subtotal: roundMoney(totalAmount / 1.18), taxAmount: roundMoney(totalAmount - totalAmount / 1.18), totalAmount,
       currency: 'INR', invoiceDate, dueDate, status,
       ocrRawText: `DEMO INVOICE\n${vendor.companyName}\nInvoice Number: ${invoiceNumber}\nDate: ${invoiceDate.toLocaleDateString('en-GB')}\nTotal Amount: INR ${totalAmount.toLocaleString('en-IN')}`,
-      ocrConfidenceScore: 86 + (index % 14),
       ocrExtractedData: { rawVendorName: vendor.companyName, rawInvoiceNumber: invoiceNumber, rawDate: invoiceDate.toLocaleDateString('en-GB'), rawTotal: String(totalAmount), rawLineItems: [] },
       discrepancies: isMismatch ? [{ field: 'totalAmount', poValue: purchaseOrder.totalAmount, invoiceValue: totalAmount, percentageDiff: 18, severity: 'critical' }] : [],
       hasDiscrepancies: isMismatch,
       exceptionNotes: isMismatch ? '' : undefined,
       uploadedBy: users.clerk._id,
-      ...(status === 'approved' || status === 'payment_initiated' || status === 'paid' ? { approvedBy: users.manager._id, approvedAt: new Date(invoiceDate.getTime() + 86400000) } : {}),
+      ...(status === 'approved' ? { approvedBy: users.manager._id, approvedAt: new Date(invoiceDate.getTime() + 86400000) } : {}),
       ...(status === 'rejected' ? { rejectedBy: users.manager._id, rejectedAt: new Date(), rejectionReason: 'Demo rejection: supporting details require correction.' } : {}),
-      ...(status === 'payment_initiated' ? { paymentStatus: 'processing', paymentInitiatedAt: new Date(), razorpayOrderId: `order_demo_${index + 1}` } : {}),
-      ...(status === 'paid' ? { paymentStatus: 'paid', paidAt: new Date(invoiceDate.getTime() + 5 * 86400000), razorpayPaymentId: `SIMULATED_PAY_SEED_${index + 1}` } : {}),
-      isOverdue: ['approved', 'payment_initiated'].includes(status) && dueDate < new Date(),
+      isOverdue: status === 'approved' && dueDate < new Date(),
     });
     await AuditLog.create({
       entityType: 'Invoice', entityId: invoice._id, action: 'INVOICE_UPLOADED', performedBy: users.clerk._id,
       description: `Demo invoice ${invoiceNumber} uploaded`, metadata: { status, seedData: true },
     });
     const actionByStatus = {
-      paid: 'PAYMENT_CONFIRMED', approved: 'APPROVED', rejected: 'REJECTED',
-      payment_initiated: 'PAYMENT_INITIATED', pending_review: 'EXCEPTION_FLAGGED', on_hold: 'ON_HOLD',
+      approved: 'APPROVED', rejected: 'REJECTED',
+      pending_review: 'EXCEPTION_FLAGGED', on_hold: 'ON_HOLD',
     }[status];
     if (actionByStatus) await AuditLog.create({
       entityType: 'Invoice', entityId: invoice._id, action: actionByStatus,

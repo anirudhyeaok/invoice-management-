@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { BarChart3, ClipboardCheck, FileCheck2, FileText, LayoutDashboard, LogOut, Store, Users } from 'lucide-react';
+import { BarChart3, ClipboardCheck, CreditCard, FileCheck2, FileText, LayoutDashboard, LogOut, Store, Users, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function WorkspaceLayout() {
@@ -8,7 +8,9 @@ export default function WorkspaceLayout() {
   const links = [
     { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { to: '/invoices', label: 'Invoices', icon: FileText },
+    ...(['clerk', 'admin'].includes(user?.role) ? [{ to: '/payments', label: 'Payments', icon: CreditCard }] : []),
     ...(['manager', 'admin'].includes(user?.role) ? [{ to: '/approvals', label: 'Approval queue', icon: ClipboardCheck }] : []),
+    ...(['manager', 'admin'].includes(user?.role) ? [{ to: '/reports', label: 'CSV report', icon: Download }] : []),
     { to: '/vendors', label: 'Vendors', icon: Store },
     ...(user?.role === 'admin' ? [{ to: '/settings/users', label: 'Team members', icon: Users }] : []),
   ];

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import api from '../lib/api';
 
-const labels = { pending_review: 'Needs review', pending_approval: 'Pending approval', approved: 'Approved', payment_initiated: 'Payment started', paid: 'Paid', rejected: 'Rejected', on_hold: 'On hold' };
+const labels = { pending_review: 'Needs review', pending_approval: 'Pending approval', approved: 'Approved', paid: 'Paid', rejected: 'Rejected', on_hold: 'On hold' };
 const money = (n, currency = 'INR') => new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n || 0);
 
 export default function InvoiceListPage() {

@@ -12,6 +12,16 @@ const commentSchema = new mongoose.Schema({
   text: { type: String, required: true, maxlength: 2000 },
   createdAt: { type: Date, default: Date.now },
 }, { _id: false });
+const paymentAttemptSchema = new mongoose.Schema({
+  orderId: { type: String, required: true },
+  paymentId: String,
+  status: { type: String, enum: ['created', 'paid', 'failed'], required: true },
+  amount: { type: Number, required: true },
+  currency: { type: String, required: true },
+  performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  message: String,
+  createdAt: { type: Date, default: Date.now },
+}, { _id: false });
 
 const invoiceSchema = new mongoose.Schema({
   invoiceNumber: { type: String, required: true, trim: true },
@@ -20,8 +30,8 @@ const invoiceSchema = new mongoose.Schema({
   lineItems: [lineItemSchema], subtotal: Number, taxAmount: Number,
   totalAmount: { type: Number, required: true, min: 0 }, currency: { type: String, default: 'INR' },
   invoiceDate: Date, dueDate: Date,
-  status: { type: String, enum: ['pending_review', 'pending_approval', 'approved', 'payment_initiated', 'paid', 'rejected', 'on_hold'], default: 'pending_review' },
-  originalFileKey: String, originalFileUrl: String, ocrRawText: String, ocrConfidenceScore: { type: Number, min: 0, max: 100 },
+  status: { type: String, enum: ['pending_review', 'pending_approval', 'approved', 'paid', 'rejected', 'on_hold'], default: 'pending_review' },
+  originalFileKey: String, originalFileUrl: String, ocrRawText: String,
   ocrExtractedData: { rawVendorName: String, rawInvoiceNumber: String, rawDate: String, rawTotal: String, currency: String, rawLineItems: [mongoose.Schema.Types.Mixed] },
   discrepancies: [discrepancySchema], hasDiscrepancies: { type: Boolean, default: false }, exceptionNotes: String,
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -33,7 +43,7 @@ const invoiceSchema = new mongoose.Schema({
   holdFromStatus: { type: String, enum: ['pending_approval', 'approved'] },
   razorpayOrderId: String, razorpayPaymentId: String,
   paymentStatus: { type: String, enum: ['unpaid', 'processing', 'paid', 'failed'], default: 'unpaid' },
-  paymentInitiatedAt: Date, paidAt: Date, reminderCount: { type: Number, default: 0 },
+  paymentInitiatedAt: Date, paidAt: Date, paymentAttempts: [paymentAttemptSchema], reminderCount: { type: Number, default: 0 },
   lastReminderSentAt: Date, isOverdue: { type: Boolean, default: false },
 }, { timestamps: true });
 

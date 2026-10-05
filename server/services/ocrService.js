@@ -64,7 +64,6 @@ async function pdfFirstPagePng(filePath) {
 
 export async function extractInvoiceData(filePath, mimeType) {
   let rawText = '';
-  let confidenceScore = 0;
   if (mimeType === 'application/pdf') {
     const parsed = await pdfParse(await fs.readFile(filePath));
     rawText = parsed.text.trim();
@@ -74,17 +73,15 @@ export async function extractInvoiceData(filePath, mimeType) {
       try {
         const result = await worker.recognize(image);
         rawText = result.data.text;
-        confidenceScore = result.data.confidence;
       } finally { await worker.terminate(); }
-    } else confidenceScore = 85;
+    }
   } else {
     const image = await sharp(path.resolve(filePath)).rotate().resize({ width: 2400, withoutEnlargement: true }).png().toBuffer();
     const worker = await createWorker('eng');
     try {
       const result = await worker.recognize(image);
       rawText = result.data.text;
-      confidenceScore = result.data.confidence;
     } finally { await worker.terminate(); }
   }
-  return { extractedData: extractFields(rawText), rawText, confidenceScore };
+  return { extractedData: extractFields(rawText), rawText };
 }

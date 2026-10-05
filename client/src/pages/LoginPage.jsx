@@ -30,7 +30,7 @@ export default function LoginPage() {
     catch (err) {
       if (!err.response) {
         setServiceUnavailable(true);
-        setError('The API cannot be reached. Check that the app and local database are running.');
+        setError('The project server could not be reached. Check its API and database connection.');
       } else setError(err.response.data?.message || 'Could not sign in. Check the email and password.');
     } finally { setBusy(false); }
   }
@@ -53,7 +53,7 @@ export default function LoginPage() {
       <div className="login-card-wrap">
         <div className="mobile-brand"><span className="brand-icon"><FileCheck2 size={19} /></span><b>Accounts payable</b></div>
         <div className="form-heading"><span className="welcome-tag">WELCOME BACK</span><h2>Sign in to your<br />workspace</h2><p>Use the account provided for your project role.</p></div>
-        {serviceUnavailable && <div className="form-error service-error" role="status">Can’t reach the API. Run <code>npm run dev</code> and check that local MongoDB is available.</div>}
+        {serviceUnavailable && <div className="form-error service-error" role="status">Can’t reach the project API. Check that the server and database are available.</div>}
         {setupHint && !serviceUnavailable && <div className="form-error service-error" role="status">No project accounts are set up yet. Run <code>npm --prefix server run seed</code>, then use one of the demo roles.</div>}
         <form onSubmit={handleSubmit} className="login-form">
           <label htmlFor="email">Work email</label>
