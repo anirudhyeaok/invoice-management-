@@ -13,7 +13,7 @@ A local full-stack course prototype for tracking supplier invoices. It extracts 
 - Manager/admin invoice CSV export with date and status filters, including approval, exception, and payment details.
 - Synthetic demo users, vendors, purchase orders, and invoices.
 
-The vendor names and records created by the seed script are sample data to make the prototype usable. Managers and admins can add custom vendors from **Vendors**; new vendors then appear in invoice intake. Clerks can select vendors but cannot create them.
+The vendor names and records created by the seed script are sample data. During invoice intake, staff type a vendor name to search matching vendors; if there is no match, a clerk can add that company by name on the spot. Contact details can be added later. Managers and admins can also add vendors from **Vendors**. Purchase orders remain optional and are shown only after selecting a vendor.
 
 ## Run on Windows
 

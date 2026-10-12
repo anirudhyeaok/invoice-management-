@@ -9,8 +9,10 @@ const router = Router();
 router.use(protect);
 router.get('/', listVendors);
 router.get('/:id', getVendor);
-router.post('/', authorize('admin', 'manager'), [
-  body('companyName').trim().notEmpty(), body('contactName').trim().notEmpty(), body('email').isEmail().normalizeEmail(),
+router.post('/', authorize('admin', 'manager', 'clerk'), [
+  body('companyName').trim().notEmpty().isLength({ max: 160 }),
+  body('contactName').optional({ values: 'falsy' }).trim().isLength({ max: 120 }),
+  body('email').optional({ values: 'falsy' }).isEmail().normalizeEmail(),
 ], validateRequest, createVendor);
 router.patch('/:id', authorize('admin', 'manager'), [body('email').optional().isEmail().normalizeEmail()], validateRequest, updateVendor);
 export default router;

@@ -14,13 +14,13 @@ function makeFilter(queryParams) {
     if (queryParams.startDate) {
       const start = new Date(queryParams.startDate);
       if (Number.isNaN(start.getTime())) throw new ApiError(400, 'Start date is invalid');
-      start.setHours(0, 0, 0, 0);
+      start.setUTCHours(0, 0, 0, 0);
       dates.$gte = start;
     }
     if (queryParams.endDate) {
       const end = new Date(queryParams.endDate);
       if (Number.isNaN(end.getTime())) throw new ApiError(400, 'End date is invalid');
-      end.setHours(23, 59, 59, 999);
+      end.setUTCHours(23, 59, 59, 999);
       dates.$lte = end;
     }
     if (dates.$gte && dates.$lte && dates.$gte > dates.$lte) throw new ApiError(400, 'Start date must be before end date');

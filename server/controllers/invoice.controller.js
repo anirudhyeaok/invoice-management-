@@ -37,7 +37,9 @@ export async function createInvoice(req, res, next) {
     const amountInput = req.body.totalAmount ?? extractedData.totalAmount;
     const totalAmount = Number(amountInput);
     if (!invoiceNumber) throw new ApiError(422, 'Could not read an invoice number. Add one and try again.');
-    if (!Number.isFinite(totalAmount) || totalAmount < 0) throw new ApiError(422, 'Could not read the invoice total. Add a valid amount and try again.');
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) throw new ApiError(422, 'Could not read a valid invoice total. Enter the total amount due and try again.');
+    const currency = req.body.currency || extractedData.currency;
+    if (!currency) throw new ApiError(422, 'The currency symbol is unclear. Choose the invoice currency and upload it again.');
 
     const invoiceData = {
       vendor: vendor._id,
@@ -48,7 +50,7 @@ export async function createInvoice(req, res, next) {
       totalAmount,
       subtotal: req.body.subtotal === undefined ? undefined : Number(req.body.subtotal),
       taxAmount: req.body.taxAmount === undefined ? undefined : Number(req.body.taxAmount),
-      currency: req.body.currency || extractedData.currency || 'INR',
+      currency,
       lineItems: req.body.lineItems ? JSON.parse(req.body.lineItems) : [],
     };
     const match = purchaseOrder ? compareInvoiceToPurchaseOrder(invoiceData, purchaseOrder) : { discrepancies: [], hasDiscrepancies: false };

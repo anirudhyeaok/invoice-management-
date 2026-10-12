@@ -4,14 +4,19 @@ import AuditLog from '../models/AuditLog.model.js';
 import ApiError from '../utils/ApiError.js';
 import { sendResponse } from '../utils/ApiResponse.js';
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export async function listVendors(req, res, next) {
   try {
     const query = {};
     if (req.query.status && ['active', 'inactive', 'blacklisted'].includes(req.query.status)) query.status = req.query.status;
-    if (req.query.search) query.$or = [
-      { companyName: { $regex: String(req.query.search).slice(0, 80), $options: 'i' } },
-      { contactName: { $regex: String(req.query.search).slice(0, 80), $options: 'i' } },
-    ];
+    if (req.query.search) {
+      const search = escapeRegex(String(req.query.search).slice(0, 80));
+      query.$or = [
+        { companyName: { $regex: search, $options: 'i' } },
+        { contactName: { $regex: search, $options: 'i' } },
+      ];
+    }
     const vendors = await Vendor.find(query).sort({ companyName: 1 }).limit(200);
     sendResponse(res, 200, 'Vendors loaded', { vendors });
   } catch (error) { next(error); }
@@ -28,7 +33,15 @@ export async function getVendor(req, res, next) {
 
 export async function createVendor(req, res, next) {
   try {
-    const vendor = await Vendor.create(req.body);
+    const companyName = String(req.body.companyName || '').trim();
+    const existing = await Vendor.findOne({ companyName: { $regex: `^${escapeRegex(companyName)}$`, $options: 'i' } });
+    if (existing) return sendResponse(res, 200, 'Existing vendor selected', { vendor: existing, existing: true });
+    const vendor = await Vendor.create({
+      companyName,
+      contactName: String(req.body.contactName || '').trim(),
+      email: String(req.body.email || '').trim().toLowerCase(),
+      phone: String(req.body.phone || '').trim(),
+    });
     await AuditLog.create({ entityType: 'Vendor', entityId: vendor._id, action: 'VENDOR_CREATED', performedBy: req.user._id,
       description: `Vendor ${vendor.companyName} created`, ipAddress: req.ip, userAgent: req.get('user-agent') });
     sendResponse(res, 201, 'Vendor created', { vendor });

@@ -13,6 +13,7 @@ router.get('/approvals/queue', authorize('manager', 'admin'), listApprovalQueue)
 router.post('/', authorize('clerk', 'admin'), invoiceUpload.single('file'), [
   body('vendorId').isMongoId().withMessage('Choose a vendor'),
   body('totalAmount').optional().isFloat({ min: 0 }),
+  body('currency').optional().isIn(['INR', 'USD', 'AUD', 'CAD', 'EUR', 'JPY', 'CNY']).withMessage('Choose a supported invoice currency'),
 ], validateRequest, createInvoice);
 router.get('/:id/file', streamInvoiceFile);
 router.get('/:id/history', getInvoiceHistory);

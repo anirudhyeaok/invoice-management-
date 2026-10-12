@@ -16,6 +16,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ToastProvider from './components/ToastProvider';
 import './styles.css';
 import './workspace.css';
+import './refinement.css';
 
 function App() {
   return <ErrorBoundary><ToastProvider><AuthProvider><BrowserRouter><Routes>
