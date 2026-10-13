@@ -14,7 +14,13 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [setupHint, setSetupHint] = useState(false);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
-  const [showRecovery, setShowRecovery] = useState(false);
+  const [showDemoAccess, setShowDemoAccess] = useState(false);
+
+  const demoAccounts = [
+    { role: 'Admin', email: 'admin@apSystem.com', password: 'Admin@123' },
+    { role: 'Manager', email: 'manager@apSystem.com', password: 'Manager@123' },
+    { role: 'Clerk', email: 'clerk@apSystem.com', password: 'Clerk@123' },
+  ];
 
   useEffect(() => {
     api.get('/auth/setup-status').then(({ data }) => setSetupHint(data.data.needsSetup))
@@ -58,9 +64,9 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="login-form">
           <label htmlFor="email">Work email</label>
           <div className="input-wrap"><Mail size={17} /><input id="email" type="email" autoComplete="username" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-          <div className="password-label"><label htmlFor="password">Password</label><button type="button" className="text-link" onClick={() => setShowRecovery(!showRecovery)}>Forgot password?</button></div>
+          <div className="password-label"><label htmlFor="password">Password</label><button type="button" className="text-link" aria-expanded={showDemoAccess} onClick={() => setShowDemoAccess(!showDemoAccess)}>Demo access</button></div>
           <div className="input-wrap"><LockKeyhole size={17} /><input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} /><button type="button" className="icon-button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-          {showRecovery && <div className="recovery-note" role="status">Password reset email is not configured in this course prototype. Use the demo credentials from the project walkthrough or ask the administrator for access.</div>}
+          {showDemoAccess && <div className="recovery-note demo-access-list" aria-label="Demo accounts">Choose a demo role to fill its sign-in details:{demoAccounts.map((account) => <button key={account.role} type="button" onClick={() => { setEmail(account.email); setPassword(account.password); setError(''); }}><b>{account.role}</b><span>{account.email}</span></button>)}</div>}
           {error && <div className="form-error" role="alert">{error}</div>}
           <button className="submit-button" disabled={busy}>{busy ? <span className="spinner" /> : <>Sign in <ArrowRight size={17} /></>}</button>
         </form>

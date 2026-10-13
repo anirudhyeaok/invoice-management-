@@ -18,7 +18,14 @@ test('uses balance due and never mistakes subtotal for total', () => {
   assert.equal(fields.invoiceDate, '2026-10-12');
   assert.equal(fields.rawTotal, '15,750.00');
   assert.equal(fields.totalAmount, 15750);
-  assert.equal(fields.currency, '');
+  assert.equal(fields.currency, 'INR');
+});
+
+test('defaults an ambiguous yen-like OCR glyph to INR', () => {
+  const fields = extractInvoiceFields('Invoice Total: ¥15,000.00');
+
+  assert.equal(fields.totalAmount, 15000);
+  assert.equal(fields.currency, 'INR');
 });
 
 test('extracts a rupee total with Indian digit grouping', () => {

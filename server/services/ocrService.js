@@ -99,8 +99,8 @@ function detectCurrency(text) {
   if (/\bCAD\b|\bCanada\b/i.test(text)) return 'CAD';
   if (/\bEUR\b|€/i.test(text)) return 'EUR';
   if (/\bUSD\b|US\s*\$|\$/.test(text)) return 'USD';
-  // A lone yen-like glyph is ambiguous: OCR often confuses ₹ with ¥.
-  if (/¥/.test(text)) return '';
+  // OCR often confuses ₹ with ¥. For this project, treat an ambiguous glyph as INR.
+  // Explicit JPY/CNY markers above still take precedence.
   return 'INR';
 }
 
@@ -131,36 +131,43 @@ export function extractInvoiceFields(text) {
 async function pdfFirstPagePng(filePath) {
   const data = new Uint8Array(await fs.readFile(filePath));
   const pdf = await getDocument({ data, useSystemFonts: true }).promise;
-  const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 1.8 });
-  const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-  await pdf.destroy();
-  return canvas.toBuffer('image/png');
+  try {
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.8 });
+    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return canvas.toBuffer('image/png');
+  } finally {
+    await pdf.destroy();
+  }
 }
 
 export async function extractInvoiceData(filePath, mimeType) {
   let rawText = '';
   if (mimeType === 'application/pdf') {
-    let parsed;
+    // pdf-parse can fail on otherwise usable PDFs. In that case, render the page
+    // and use OCR instead of incorrectly telling the user the PDF is encrypted.
     try {
-      parsed = await pdfParse(await fs.readFile(filePath));
-    } catch {
-      throw new ApiError(422, 'This PDF could not be read. Check that it is a valid, unencrypted invoice PDF and try again.');
-    }
-    rawText = parsed.text.trim();
+      const parsed = await pdfParse(await fs.readFile(filePath));
+      rawText = parsed.text.trim();
+    } catch { rawText = ''; }
     if (rawText.length < 40) {
       let image;
       try {
         image = await pdfFirstPagePng(filePath);
       } catch {
-        throw new ApiError(422, 'This PDF page could not be opened. Check the file and upload a readable invoice PDF.');
+        throw new ApiError(422, 'The PDF could not be read as text or opened for OCR. Check that it is a valid, unprotected invoice PDF and try again.');
       }
-      const worker = await createWorker('eng');
+      let worker;
       try {
+        worker = await createWorker('eng');
         const result = await worker.recognize(image);
         rawText = result.data.text;
-      } finally { await worker.terminate(); }
+      } catch {
+        throw new ApiError(422, 'Text could not be recognized in this PDF. Try a clearer or unprotected copy.');
+      } finally {
+        if (worker) await worker.terminate();
+      }
     }
   } else {
     let image;
