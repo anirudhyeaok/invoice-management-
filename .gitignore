@@ -13,3 +13,10 @@ server/uploads/*
 .local-mongodb/
 *.log
 .DS_Store
+.codex/
+/report_work/
+/presentations/
+/Accounts_Payable_Invoice_Management_Project_Report*.docx
+/Accounts_Payable_Project_Review.pptx
+/~$*.docx
+/server/eng.traineddata

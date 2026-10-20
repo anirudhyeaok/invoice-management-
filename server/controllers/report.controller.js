@@ -69,10 +69,7 @@ export async function exportInvoicesCsv(req, res, next) {
       ['Purchase Order Differences', (invoice) => JSON.stringify(invoice.discrepancies || [])],
       ['Team Comments', (invoice) => JSON.stringify(invoice.comments || [])],
       ['Payment Attempts', (invoice) => JSON.stringify(invoice.paymentAttempts || [])],
-      ['Payment Provider Order ID', (invoice) => invoice.razorpayOrderId],
-      ['Payment Provider Payment ID', (invoice) => invoice.razorpayPaymentId],
-      ['Payment Initiated At', (invoice) => invoice.paymentInitiatedAt],
-      ['Paid At', (invoice) => invoice.paidAt],
+      ['Payment Recorded At', (invoice) => invoice.paidAt],
       ['Uploaded At', (invoice) => invoice.createdAt],
       ['Updated At', (invoice) => invoice.updatedAt],
     ];

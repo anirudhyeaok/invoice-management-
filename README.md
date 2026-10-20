@@ -1,6 +1,6 @@
-# Accounts Payable Prototype
+# Accounts Payable Invoice Management
 
-A local full-stack course prototype for tracking supplier invoices. It extracts details from uploaded documents, compares invoices with optional purchase orders, routes invoices for manager review, and records approval history. It does not move real money.
+A full-stack course project for tracking supplier invoices. It extracts details from uploaded documents, compares invoices with optional purchase orders, routes invoices for manager review, and records approval history. Its payment action is a demo record only; it does not move real money.
 
 ## What it includes
 
@@ -9,7 +9,7 @@ A local full-stack course prototype for tracking supplier invoices. It extracts 
 - Vendor directory and purchase-order matching.
 - Manager approval queue, approve/reject comments, correction and resubmission, and status history.
 - On-hold status with a reason; managers/admins can pause eligible invoices and release them back to their previous step.
-- Clerk payment page for manager-approved INR invoices, using Razorpay-hosted checkout and server-side signature/capture verification. Test keys only; live keys are rejected.
+- Clerk payment page for manager-approved invoices. A clerk can record a demo payment; no payment provider, card details, or money transfer is involved.
 - Manager/admin invoice CSV export with date and status filters, including approval, exception, and payment details.
 - Synthetic demo users, vendors, purchase orders, and invoices.
 
@@ -28,24 +28,15 @@ Requirements: Node.js 20 or newer and MongoDB Community Server. The developer ma
 
 The database records and uploaded documents are stored in MongoDB. Invoice uploads are placed in GridFS, so links keep working after the API restarts. The database files are stored in `.local-mongodb/data/` when the project-local server is used. In MongoDB Compass, connect to `mongodb://127.0.0.1:27017` and open `ap-system`.
 
-## Payment checkout
+## Demo payment record
 
-The Payments page is available to Clerks and Admins. It only offers manager-approved INR invoices. The API creates a Razorpay order from the saved invoice amount, and the checkout opens on Razorpay's hosted payment page. The app records an invoice as paid only after the server validates the checkout signature and confirms that Razorpay captured the matching amount and currency.
-
-Create **test mode** API keys in the Razorpay dashboard, then add them to `server/.env`:
-
-```env
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=...
-```
-
-The secret stays on the API server. The app refuses live keys, and the test gateway does not charge real money. If keys are absent, the Payments page explains that checkout is not connected. To test payment, use Razorpay's test checkout methods shown in its dashboard.
+The Payments page is available to Clerks and Admins. After a manager approves an invoice, a clerk can choose **Record demo payment** and confirm. The system marks the invoice paid and records who performed the action in the invoice history. It is a workflow demonstration only: it does not contact a bank, collect financial details, or move money. No payment gateway credentials are required.
 
 ## Invoice CSV export
 
-Managers and Admins can open **CSV report** and download the complete invoice register, optionally filtered by status and invoice date. The file includes invoice totals, vendors, purchase orders, line items, discrepancies, workflow notes, comments, approval data, provider IDs, payment attempts, and timestamps. It opens in spreadsheet software; no separate charts or report dashboards are part of this prototype.
+Managers and Admins can open **CSV report** and download the complete invoice register, optionally filtered by status and invoice date. The file includes invoice totals, vendors, purchase orders, line items, discrepancies, workflow notes, comments, approval data, payment activity, and timestamps. It opens in spreadsheet software.
 
-## Demo sign-in
+## Local demo sign-in
 
 | Role | Email | Password |
 |---|---|---|
@@ -53,27 +44,40 @@ Managers and Admins can open **CSV report** and download the complete invoice re
 | Manager | `manager@apSystem.com` | `Manager@123` |
 | Clerk | `clerk@apSystem.com` | `Clerk@123` |
 
-These credentials are only for the local demo. Change them before using a shared or deployed environment. There is no public sign-up; admins create staff accounts from **Team members**.
+These passwords are only for a local demo database. For deployment, seed a fresh Atlas database with private passwords using the `DEMO_ADMIN_PASSWORD`, `DEMO_MANAGER_PASSWORD`, and `DEMO_CLERK_PASSWORD` environment variables as described below. There is no public sign-up; admins create staff accounts from **Team members**.
 
-## Prototype limits and next work
+## Current limits
 
-OCR can misread amounts, dates, vendors, and scanned layouts; a person must verify the extracted fields. Scanned PDFs are processed from the first page. The interface does not show an OCR confidence meter. Email reminders are deferred. The hosted payment page is a real provider checkout in test mode, not an in-app control that pretends to send payment.
+OCR can misread amounts, dates, vendors, and scanned layouts; a person must verify the extracted fields. Scanned PDFs are processed from the first page. Managers/admins can send a manual payment follow-up email for an approved invoice when the email provider is configured; automatic scheduled emails are not implemented. Demo payment records do not represent real transfers. This project is intended for a course demonstration, not production accounts payable processing.
 
 ## Deploy on Vercel
 
 The repository is split into a React frontend and an Express API. In Vercel, create two projects from this repository:
 
-1. **Frontend project:** set Root Directory to `client`. Vercel builds the Vite app. Set `VITE_API_BASE_URL` to the API deployment URL followed by `/api`, for example `https://your-api.vercel.app/api`.
-2. **API project:** set Root Directory to `server`. Vercel detects the exported Express app. Set `NODE_ENV=production`, `MONGO_URI` to a MongoDB Atlas database URI, `JWT_SECRET` to a long private value, `CLIENT_URL` to the frontend deployment URL, and the two Razorpay **test** keys above.
-3. Add the Vercel API deployment's origin to the Atlas network access list according to the connection option available on your Atlas plan. Use test keys and synthetic records for a class demo.
+1. **Create a MongoDB Atlas cluster.** Make a database user and copy the application's connection string. Replace its placeholder password and add a database name such as `ap-system-demo`. In Atlas Network Access, allow the API host to connect. Vercel Functions do not have a fixed outbound IP on every plan; if Atlas requires a broad allow-list entry to make the class demo connect, understand that it permits connections from any IP and use a dedicated demo database with no private information.
+2. **API project:** import this same GitHub repository as a Vercel project and set Root Directory to `server`. Vercel recognizes the Express app. Set `NODE_ENV=production`, `MONGO_URI` to the Atlas connection string, `JWT_SECRET` to a long random private value, and `CLIENT_URL` to the deployed frontend's exact origin (for example `https://your-app.vercel.app`). For reminder emails, also set `RESEND_API_KEY` and `REMINDER_FROM_EMAIL` to a sender address verified with Resend. Without those settings, all other features work and the reminder action reports that email is not configured. Do not add payment keys; the project has no payment gateway.
+3. **Frontend project:** import the repository again as a separate Vercel project and set Root Directory to `client`. Add `VITE_API_BASE_URL` with the API deployment URL plus `/api`, for example `https://your-api.vercel.app/api`. Deploy the API first so its URL is available.
+4. **Seed the remote demo database (optional).** Use a fresh Atlas database. In PowerShell, set the Atlas URI and three private passwords for the seed process, then run the seed script:
 
-The API stores invoice documents in MongoDB GridFS, so it does not depend on Vercel's temporary filesystem. The local upload limit is 10 MB; the Vercel upload limit is 4 MB to stay below Vercel Functions' request-size limit. This project is configured for a desktop browser workflow; it is not a mobile app. Email reminders remain deferred.
+   ```powershell
+   $env:MONGO_URI = 'your Atlas connection string for ap-system-demo'
+   $env:NODE_ENV = 'production'
+   $env:DEMO_ADMIN_PASSWORD = 'a unique private password'
+   $env:DEMO_MANAGER_PASSWORD = 'a different unique private password'
+   $env:DEMO_CLERK_PASSWORD = 'another unique private password'
+   npm --prefix server run seed
+   ```
+
+   Use your real Atlas URI and strong passwords in your terminal; do not paste secrets into source files or commit `.env`. The seed script adds fictional users, vendors, purchase orders, and invoices. Production-mode seeding refuses to run if those passwords are missing. Do not run it against a database containing records you need to preserve. After seeding, remove the temporary PowerShell variables and set local `MONGO_URI` back to localhost for local work.
+5. Sign in with the addresses shown in the local-demo table and the private passwords you set for seeding. Use only fictional invoices and vendor details in a public demo.
+
+Atlas is the persistent database for a deployed version. Invoice records and uploaded invoice PDFs/images are stored in MongoDB; documents use GridFS, so they survive function restarts and deployments. Vercel's local filesystem is temporary and is used only while processing an upload. The app limits Vercel uploads to 4 MB because Vercel Function request bodies are limited to 4.5 MB. You can inspect deployed records in MongoDB Compass by connecting it to the same Atlas URI, or in the Atlas Data Explorer. Local MongoDB data does not automatically appear in Atlas: seed fresh fictional demo data, or deliberately migrate records and files you actually want to keep.
 
 ## GitHub hygiene
 
 - `.env` files, local uploaded documents, MongoDB data, logs, dependencies, and build output are ignored by Git.
 - `.env.example` files contain placeholders only. Never commit real database credentials, JWT secrets, private invoices, or production payment keys.
-- Demo accounts and seeded records are fictional course data; do not use the demo passwords on a public deployment.
+- Demo accounts and seeded records are fictional course data; never use the local demo passwords in a shared deployment.
 
 ## Project layout
 

@@ -13,7 +13,8 @@ const commentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 }, { _id: false });
 const paymentAttemptSchema = new mongoose.Schema({
-  orderId: { type: String, required: true },
+  // orderId remains available for legacy gateway records; manual demo entries have none.
+  orderId: String,
   paymentId: String,
   status: { type: String, enum: ['created', 'paid', 'failed'], required: true },
   amount: { type: Number, required: true },

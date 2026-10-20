@@ -7,10 +7,17 @@ import PurchaseOrder from './models/PurchaseOrder.model.js';
 import Invoice from './models/Invoice.model.js';
 import AuditLog from './models/AuditLog.model.js';
 
+const productionSeed = process.env.NODE_ENV === 'production';
+const passwordFor = (envName, localPassword) => {
+  const value = process.env[envName];
+  if (productionSeed && !value) throw new Error(`${envName} must be set when seeding a production database`);
+  if (productionSeed && value.length < 12) throw new Error(`${envName} must be at least 12 characters`);
+  return value || localPassword;
+};
 const demoUsers = [
-  { name: 'Anirudh Admin', email: 'admin@apSystem.com', password: 'Admin@123', role: 'admin' },
-  { name: 'Maya Manager', email: 'manager@apSystem.com', password: 'Manager@123', role: 'manager' },
-  { name: 'Arun Clerk', email: 'clerk@apSystem.com', password: 'Clerk@123', role: 'clerk' },
+  { name: 'Anirudh Admin', email: 'admin@apSystem.com', password: passwordFor('DEMO_ADMIN_PASSWORD', 'Admin@123'), role: 'admin' },
+  { name: 'Maya Manager', email: 'manager@apSystem.com', password: passwordFor('DEMO_MANAGER_PASSWORD', 'Manager@123'), role: 'manager' },
+  { name: 'Arun Clerk', email: 'clerk@apSystem.com', password: passwordFor('DEMO_CLERK_PASSWORD', 'Clerk@123'), role: 'clerk' },
 ];
 
 const vendorNames = [
@@ -130,7 +137,7 @@ try {
   }
 
   console.log(`Seed ready: ${demoUsers.length} roles, ${vendors.length} vendors, ${purchaseOrders.length} purchase orders, ${statuses.length} invoices.`);
-  console.log('Demo login accounts: admin@apSystem.com / Admin@123; manager@apSystem.com / Manager@123; clerk@apSystem.com / Clerk@123');
+  console.log(`Demo login accounts: ${demoUsers.map(({ email }) => email).join(', ')}. Passwords were not printed.`);
 } catch (error) {
   console.error(`Seeding failed: ${error.message}`);
   process.exitCode = 1;
