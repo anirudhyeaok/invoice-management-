@@ -1,6 +1,6 @@
 # Accounts Payable Invoice Management
 
-A full-stack course project for tracking supplier invoices. It extracts details from uploaded documents, compares invoices with optional purchase orders, routes invoices for manager review, and records approval history. Its payment action is a demo record only; it does not move real money.
+A full-stack course project for tracking supplier invoices. It extracts details from uploaded documents, compares invoices with optional purchase orders, routes invoices for manager review, and records approval history. Payment recording updates the invoice status and history; it does not move money.
 
 ## What it includes
 
@@ -9,7 +9,7 @@ A full-stack course project for tracking supplier invoices. It extracts details 
 - Vendor directory and purchase-order matching.
 - Manager approval queue, approve/reject comments, correction and resubmission, and status history.
 - On-hold status with a reason; managers/admins can pause eligible invoices and release them back to their previous step.
-- Clerk payment page for manager-approved invoices. A clerk can record a demo payment; no payment provider, card details, or money transfer is involved.
+- Clerk payment page for manager-approved invoices. A clerk can record payment in the invoice workflow; no payment provider, card details, or money transfer is involved.
 - Manager/admin invoice CSV export with date and status filters, including approval, exception, and payment details.
 - Synthetic demo users, vendors, purchase orders, and invoices.
 
@@ -28,9 +28,9 @@ Requirements: Node.js 20 or newer and MongoDB Community Server. The developer ma
 
 The database records and uploaded documents are stored in MongoDB. Invoice uploads are placed in GridFS, so links keep working after the API restarts. The database files are stored in `.local-mongodb/data/` when the project-local server is used. In MongoDB Compass, connect to `mongodb://127.0.0.1:27017` and open `ap-system`.
 
-## Demo payment record
+## Payment record
 
-The Payments page is available to Clerks and Admins. After a manager approves an invoice, a clerk can choose **Record demo payment** and confirm. The system marks the invoice paid and records who performed the action in the invoice history. It is a workflow demonstration only: it does not contact a bank, collect financial details, or move money. No payment gateway credentials are required.
+The Payments page is available to Clerks and Admins. After a manager approves an invoice, an authorized user can choose **Record payment** and confirm. The system marks the invoice paid and records who performed the action in the invoice history. It does not contact a bank, collect financial details, or move money. No payment gateway credentials are required.
 
 ## Invoice CSV export
 
@@ -48,14 +48,14 @@ These passwords are only for a local demo database. For deployment, seed a fresh
 
 ## Current limits
 
-OCR can misread amounts, dates, vendors, and scanned layouts; a person must verify the extracted fields. Scanned PDFs are processed from the first page. Managers/admins can send a manual payment follow-up email for an approved invoice when the email provider is configured; automatic scheduled emails are not implemented. Demo payment records do not represent real transfers. This project is intended for a course demonstration, not production accounts payable processing.
+OCR can misread amounts, dates, vendors, and scanned layouts; a person must verify the extracted fields. Scanned PDFs are processed from the first page. Recording a payment updates the invoice workflow and history; it does not contact a bank or move funds. This project is intended for a course demonstration, not production accounts payable processing.
 
 ## Deploy on Vercel
 
 The repository is split into a React frontend and an Express API. In Vercel, create two projects from this repository:
 
 1. **Create a MongoDB Atlas cluster.** Make a database user and copy the application's connection string. Replace its placeholder password and add a database name such as `ap-system-demo`. In Atlas Network Access, allow the API host to connect. Vercel Functions do not have a fixed outbound IP on every plan; if Atlas requires a broad allow-list entry to make the class demo connect, understand that it permits connections from any IP and use a dedicated demo database with no private information.
-2. **API project:** import this same GitHub repository as a Vercel project and set Root Directory to `server`. Vercel recognizes the Express app. Set `NODE_ENV=production`, `MONGO_URI` to the Atlas connection string, `JWT_SECRET` to a long random private value, and `CLIENT_URL` to the deployed frontend's exact origin (for example `https://your-app.vercel.app`). For reminder emails, also set `RESEND_API_KEY` and `REMINDER_FROM_EMAIL` to a sender address verified with Resend. Without those settings, all other features work and the reminder action reports that email is not configured. Do not add payment keys; the project has no payment gateway.
+2. **API project:** import this same GitHub repository as a Vercel project and set Root Directory to `server`. Vercel recognizes the Express app. Set `NODE_ENV=production`, `MONGO_URI` to the Atlas connection string, `JWT_SECRET` to a long random private value, and `CLIENT_URL` to the deployed frontend's exact origin (for example `https://your-app.vercel.app`). No email or payment-provider keys are required.
 3. **Frontend project:** import the repository again as a separate Vercel project and set Root Directory to `client`. Add `VITE_API_BASE_URL` with the API deployment URL plus `/api`, for example `https://your-api.vercel.app/api`. Deploy the API first so its URL is available.
 4. **Seed the remote demo database (optional).** Use a fresh Atlas database. In PowerShell, set the Atlas URI and three private passwords for the seed process, then run the seed script:
 

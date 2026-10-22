@@ -44,8 +44,7 @@ const invoiceSchema = new mongoose.Schema({
   holdFromStatus: { type: String, enum: ['pending_approval', 'approved'] },
   razorpayOrderId: String, razorpayPaymentId: String,
   paymentStatus: { type: String, enum: ['unpaid', 'processing', 'paid', 'failed'], default: 'unpaid' },
-  paymentInitiatedAt: Date, paidAt: Date, paymentAttempts: [paymentAttemptSchema], reminderCount: { type: Number, default: 0 },
-  lastReminderSentAt: Date, isOverdue: { type: Boolean, default: false },
+  paymentInitiatedAt: Date, paidAt: Date, paymentAttempts: [paymentAttemptSchema], isOverdue: { type: Boolean, default: false },
 }, { timestamps: true });
 
 invoiceSchema.index({ invoiceNumber: 'text' });

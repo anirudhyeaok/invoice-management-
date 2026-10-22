@@ -4,11 +4,7 @@ import AuditLog from '../models/AuditLog.model.js';
 import ApiError from '../utils/ApiError.js';
 import { sendResponse } from '../utils/ApiResponse.js';
 
-/**
- * This course project records a manual demo payment only. It does not contact a
- * payment provider, collect financial details, or transfer money.
- */
-export async function recordDemoPayment(req, res, next) {
+export async function recordPayment(req, res, next) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw new ApiError(400, 'Invoice ID is invalid');
 
@@ -25,22 +21,22 @@ export async function recordDemoPayment(req, res, next) {
       amount: invoice.totalAmount,
       currency: invoice.currency || 'INR',
       performedBy: req.user._id,
-      message: 'Demo payment recorded manually; no money was transferred.',
+      message: 'Payment recorded.',
     });
     await invoice.save();
 
     await AuditLog.create({
       entityType: 'Invoice',
       entityId: invoice._id,
-      action: 'PAYMENT_RECORDED_DEMO',
+      action: 'PAYMENT_RECORDED',
       performedBy: req.user._id,
-      description: `Demo payment recorded for ${invoice.invoiceNumber}; no money was transferred`,
-      metadata: { amount: invoice.totalAmount, currency: invoice.currency || 'INR', mode: 'manual_demo' },
+      description: `Payment recorded for ${invoice.invoiceNumber}`,
+      metadata: { amount: invoice.totalAmount, currency: invoice.currency || 'INR', mode: 'manual_record' },
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
 
-    return sendResponse(res, 200, 'Demo payment recorded. No money was transferred.', { invoice });
+    return sendResponse(res, 200, 'Payment recorded!', { invoice });
   } catch (error) {
     return next(error);
   }
