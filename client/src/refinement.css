@@ -153,15 +153,21 @@ td { padding: 16px 19px; border-color: #eeece3; color: #60645a; font-size: 12px;
 .detail-list dd { color: #40463b; font-size: 12px; line-height: 1.5; }
 
 .document-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 11px 14px;
   border: 1px solid #e1e5d7;
   border-radius: 9px;
   background: #eef0e7;
   color: #4a6541;
   font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .document-link:hover { background: #e7eadc; }
+.document-link:disabled { cursor: wait; opacity: .7; }
 .section-subhead { margin-top: 31px !important; }
 .vendor-contact { color: #64685e; font-size: 12px; line-height: 1.9; }
 .vendor-contact a { color: #59734b; }

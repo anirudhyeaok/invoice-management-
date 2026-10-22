@@ -16,6 +16,8 @@ export default function InvoiceDetailPage() {
   const [actionError, setActionError] = useState('');
   const [decisionComment, setDecisionComment] = useState('');
   const [holdReason, setHoldReason] = useState('');
+  const [documentLoading, setDocumentLoading] = useState(false);
+  const [documentError, setDocumentError] = useState('');
   const vendors = useQuery({ queryKey: ['vendors'], queryFn: async () => (await api.get('/vendors')).data.data.vendors, enabled: Boolean(user) });
   const { data, isLoading, error } = useQuery({ queryKey: ['invoice', id], queryFn: async () => (await api.get(`/invoices/${id}`)).data.data.invoice });
   const history = useQuery({ queryKey: ['invoice-history', id], queryFn: async () => (await api.get(`/invoices/${id}/history`)).data.data.history });
@@ -34,6 +36,27 @@ export default function InvoiceDetailPage() {
     onSuccess: (invoice) => { cache.setQueryData(['invoice', id], invoice); cache.invalidateQueries({ queryKey: ['invoice', id] }); cache.invalidateQueries({ queryKey: ['approval-queue'] }); cache.invalidateQueries({ queryKey: ['invoices'] }); cache.invalidateQueries({ queryKey: ['invoice-history', id] }); setHoldReason(''); setActionError(''); notify(invoice.status === 'on_hold' ? 'Invoice placed on hold.' : 'Invoice hold released.'); },
     onError: (err) => setActionError(err.response?.data?.message || 'Could not update the hold status.'),
   });
+  async function openInvoiceFile() {
+    setDocumentError('');
+    const viewer = window.open('about:blank', '_blank');
+    if (!viewer) {
+      setDocumentError('Allow pop-ups for this site to open the uploaded file.');
+      return;
+    }
+    viewer.opener = null;
+    setDocumentLoading(true);
+    try {
+      const response = await api.get(`/invoices/${id}/file`, { responseType: 'blob' });
+      const fileUrl = URL.createObjectURL(response.data);
+      viewer.location.href = fileUrl;
+      window.setTimeout(() => URL.revokeObjectURL(fileUrl), 5 * 60 * 1000);
+    } catch {
+      viewer.close();
+      setDocumentError('Could not open the uploaded file. Please try again.');
+    } finally {
+      setDocumentLoading(false);
+    }
+  }
   if (isLoading) return <div className="table-message">Loading invoice…</div>;
   if (error || !data) return <div className="module-page"><Link className="back-link" to="/invoices"><ArrowLeft size={15} /> Invoices</Link><div className="table-message error-text">This invoice could not be loaded.</div></div>;
   const isSubmitter = data.uploadedBy?._id === user?.id;
@@ -47,7 +70,7 @@ export default function InvoiceDetailPage() {
     <div className="page-heading"><div><span className="welcome-tag">INVOICE RECORD</span><h1>{data.invoiceNumber}</h1><p>Uploaded {new Date(data.createdAt).toLocaleString('en-IN')}</p></div><span className={`status-pill status-${data.status}`}>{data.status.replaceAll('_', ' ')}</span></div>
     <div className="detail-grid">
       <article className="detail-card"><h2>Invoice summary</h2><dl className="detail-list"><div><dt>Selected vendor</dt><dd>{data.vendor?.companyName}</dd></div><div><dt>Invoice date</dt><dd>{data.invoiceDate ? new Date(data.invoiceDate).toLocaleDateString('en-IN') : 'Not detected'}</dd></div><div><dt>Due date</dt><dd>{data.dueDate ? new Date(data.dueDate).toLocaleDateString('en-IN') : 'Not detected'}</dd></div><div><dt>Total amount</dt><dd className="amount-cell">{money(data.totalAmount, data.currency)}</dd></div><div><dt>Purchase order</dt><dd>{data.purchaseOrder?.poNumber || 'Not linked'}</dd></div></dl>{data.ocrExtractedData?.rawVendorName && !['invoice', 'tax invoice', 'bill'].includes(data.ocrExtractedData.rawVendorName.trim().toLowerCase()) && <p className="vendor-ocr-note">Text on invoice says “{data.ocrExtractedData.rawVendorName}”. Check that the selected vendor is the same business.</p>}</article>
-      <article className="detail-card"><h2>Original document</h2>{data.originalFileUrl ? <a className="document-link" href={`${api.defaults.baseURL.replace(/\/api$/, '')}${data.originalFileUrl}`} target="_blank" rel="noreferrer"><FileText size={18} /> View uploaded file</a> : <p className="muted">No document attached.</p>}<h2 className="section-subhead">Vendor contact</h2><p className="vendor-contact">{data.vendor?.contactName}<br /><a href={`mailto:${data.vendor?.email}`}>{data.vendor?.email}</a></p></article>
+      <article className="detail-card"><h2>Original document</h2>{data.originalFileUrl ? <><button className="document-link" type="button" onClick={openInvoiceFile} disabled={documentLoading}><FileText size={18} /> {documentLoading ? 'Opening file…' : 'View uploaded file'}</button>{documentError && <p className="inline-error" role="alert">{documentError}</p>}</> : <p className="muted">No document attached.</p>}<h2 className="section-subhead">Vendor contact</h2><p className="vendor-contact">{data.vendor?.contactName}<br /><a href={`mailto:${data.vendor?.email}`}>{data.vendor?.email}</a></p></article>
     </div>
     {data.hasDiscrepancies && <article className="detail-card discrepancy-card"><h2>Purchase order differences</h2><p>Review these values before moving the invoice forward.</p><div className="table-wrap"><table><thead><tr><th>Field</th><th>PO value</th><th>Invoice value</th><th>Difference</th><th>Severity</th></tr></thead><tbody>{data.discrepancies.map((item, index) => <tr key={`${item.field}-${index}`}><td>{item.field}</td><td>{item.poValue ?? '—'}</td><td>{item.invoiceValue ?? '—'}</td><td>{item.percentageDiff}%</td><td><span className={`severity severity-${item.severity}`}>{item.severity}</span></td></tr>)}</tbody></table></div></article>}
     {canResolve && <article className="detail-card resolution-card"><h2>Review invoice</h2><p>Correct any details OCR read incorrectly. Add exception notes if there are purchase order differences.</p><div className="form-grid"><label className="field-label">Vendor<select value={values.vendorId} onChange={(e) => setField('vendorId', e.target.value)}>{(vendors.data || []).map((vendor) => <option key={vendor._id} value={vendor._id}>{vendor.companyName}</option>)}</select></label><label className="field-label">Invoice number<input value={values.invoiceNumber} onChange={(e) => setField('invoiceNumber', e.target.value)} /></label><label className="field-label">Total amount<input type="number" min="0" step="0.01" value={values.totalAmount} onChange={(e) => setField('totalAmount', e.target.value)} /></label><label className="field-label">Currency<select value={values.currency} onChange={(e) => setField('currency', e.target.value)}>{['INR', 'USD', 'AUD', 'CAD', 'EUR', 'JPY', 'CNY'].map((code) => <option key={code}>{code}</option>)}</select></label><label className="field-label">Invoice date<input type="date" value={values.invoiceDate} onChange={(e) => setField('invoiceDate', e.target.value)} /></label><label className="field-label">Due date<input type="date" value={values.dueDate} onChange={(e) => setField('dueDate', e.target.value)} /></label></div>{data.hasDiscrepancies && <label className="field-label">Exception notes<textarea rows="3" value={values.exceptionNotes} onChange={(e) => setField('exceptionNotes', e.target.value)} placeholder="Explain the difference or why this invoice should proceed." /></label>}{actionError && <p className="inline-error">{actionError}</p>}<div className="upload-actions"><button className="secondary-button" type="button" onClick={() => save.mutate(values)} disabled={save.isPending}>Save corrections</button><button className="primary-link" type="button" onClick={() => save.mutate({ ...values, submitForApproval: true })} disabled={save.isPending}>Submit for approval</button></div></article>}
